@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>মাগুরা কাত্যায়নী পূজা – মণ্ডপ গাইড</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap">
+<style>
+  /* ===== থিমের রং: সময় অনুযায়ী data-theme বদলায় (day / dusk / night) ===== */
+  :root { --bg:#F6F7FB; --card:#FFFFFF; --ink:#1E2540; --muted:#555B73; --line:#DDE1EC;
+          --gold:#F2A900; --red:#C62828; --green:#2E7D5B; --tile:none; }
+  html[data-theme="dusk"]  { --bg:#383840; --card:#45454E; --ink:#F3EFE8; --muted:#BEB9B1; --line:#5C5C66;
+          --green:#5BC596; --tile:brightness(.82) sepia(.3) contrast(1.05); }
+  html[data-theme="night"] { --bg:#0A1226; --card:#121D38; --ink:#E6ECFA; --muted:#93A0BF; --line:#22305A;
+          --green:#5BC596; --tile:invert(1) hue-rotate(180deg) brightness(.85) contrast(.95); }
+
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body { display:flex; flex-direction:column; background:var(--bg); color:var(--ink);
+         font-family:"Hind Siliguri", system-ui, sans-serif; line-height:1.5; transition:background .8s, color .8s; }
+
+  /* উপরের তিনটি ভাগ */
+  #tabs { display:flex; gap:8px; padding:8px 10px; background:var(--card); border-bottom:1px solid var(--line); }
+  #tabs button { flex:1; padding:11px 4px; border:1.5px solid var(--line); border-radius:10px; background:var(--bg);
+                 color:var(--ink); font:inherit; font-size:1rem; font-weight:600; box-shadow:0 2px 0 var(--line); }
+  #tabs button:active { transform:translateY(1px); box-shadow:none; }
+  #tabs button.on { background:var(--gold); border-color:var(--gold); color:#1E2540; box-shadow:none; }
+  #tabs button.sos { color:var(--red); border-color:var(--red); box-shadow:0 2px 0 var(--red); }
+  #tabs button.sos.on { background:var(--red); border-color:var(--red); color:#fff; box-shadow:none; }
+
+  #views { flex:1; position:relative; min-height:0; }
+  .view { position:absolute; inset:0; display:none; overflow-y:auto; padding:14px; }
+  .view.on { display:block; }
+  #v-map { padding:0; overflow:hidden; }
+  #map { position:absolute; inset:0; background:var(--bg); }
+  .leaflet-tile-pane { filter:var(--tile); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--card); color:var(--ink); }
+
+  /* ম্যাপের উপরের গন্তব্য বাছাইয়ের বক্স */
+  #bar { position:absolute; top:10px; left:10px; right:10px; max-width:520px; z-index:1000;
+         background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+         box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  #chip { font-weight:600; margin-top:6px; }
+  #chip:empty { display:none; }
+  #locate { position:absolute; right:10px; bottom:34px; z-index:1000; width:46px; height:46px; border-radius:50%;
+            border:1px solid var(--line); background:var(--card); color:#1A73E8; display:grid; place-items:center; padding:0; box-shadow:0 3px 10px rgba(0,0,0,.3); }
+
+  label { display:block; font-size:.85rem; color:var(--muted); margin:8px 0 3px; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .row:first-child { margin-top:0; }
+  .row label { margin:0; width:52px; flex:none; }
+  select { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px;
+           background:var(--card); color:var(--ink); font:inherit; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; max-width:560px; margin:0 auto 12px; }
+  #fareOut:empty { display:none; }
+  h2 { font-size:1.05rem; margin:0 0 6px; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th, td { text-align:left; padding:7px 4px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:.88rem; }
+  .big { font-size:1.6rem; font-weight:700; color:var(--green); }
+  .note { font-size:.8rem; color:var(--muted); margin:8px 0 0; }
+  .err { color:var(--red); }
+  .empty { color:var(--muted); }
+  .mini { border:1px solid var(--gold); background:var(--gold); color:#1E2540; padding:6px 10px; border-radius:6px; font:inherit; font-weight:600; }
+
+  /* মানচিত্রের পিন */
+  .pin { width:34px; height:34px; border-radius:50%; background:var(--gold); border:2px solid #fff;
+         display:grid; place-items:center; font-size:18px; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+  .me { width:20px; height:20px; border-radius:50%; background:#1A73E8; border:3px solid #fff;
+        box-shadow:0 0 0 7px rgba(26,115,232,.28); }
+
+  /* জরুরি কল */
+  .emg { border-left:5px solid var(--gold); }
+  .emg.red { border-left-color:var(--red); }
+  .emg b { display:block; font-size:1.05rem; }
+  .emg small { color:var(--muted); }
+  .num { font-size:1.6rem; font-weight:700; margin:2px 0 8px; }
+  .call { display:block; text-align:center; background:var(--green); color:#fff; text-decoration:none;
+          padding:12px; border-radius:8px; font-weight:700; }
+  .red .call { background:var(--red); }
+</style>
+</head>
+<body>
+
+<nav id="tabs">
+  <button class="on" data-tab="map">ম্যাপ</button>
+  <button data-tab="fare">ভাড়া</button>
+  <button class="sos" data-tab="emg">জরুরি কল</button>
+</nav>
+
+<div id="views">
+
+  <!-- ভাগ ১: শুধু ম্যাপ -->
+  <div id="v-map" class="view on">
+    <div id="map"></div>
+    <div id="bar">
+      <div class="row"><label for="fromMap">থেকে</label><select id="fromMap"></select></div>
+      <div class="row"><label for="toMap">যাব</label><select id="toMap"></select></div>
+      <div id="chip"></div>
+    </div>
+    <button id="locate" aria-label="আমার অবস্থান"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+  </div>
+
+  <!-- ভাগ ২: ভাড়া -->
+  <div id="v-fare" class="view">
+    <div class="card">
+      <h2>ভাড়া দেখুন</h2>
+      <label for="fromFare">কোথা থেকে</label>
+      <select id="fromFare"></select>
+      <label for="toFare">কোথায় যাবেন</label>
+      <select id="toFare"></select>
+      <label for="people">যাত্রী সংখ্যা (জনপ্রতি ভাড়ার যানের জন্য)</label>
+      <select id="people"></select>
+    </div>
+    <div class="card" id="fareOut"></div>
+  </div>
+
+  <!-- ভাগ ৩: জরুরি কল -->
+  <div id="v-emg" class="view"><div id="emgList"></div></div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+/* =====================================================
+   ১) এখানে আপনার নিজের তথ্য বসান
+   ===================================================== */
+
+// মাগুরা শহরের মাঝামাঝি একটি পয়েন্ট
+const CENTER = [23.4855, 89.4198];
+
+// মণ্ডপের তালিকা। প্রতিটি লাইনের শেষে কমা (,) দিতে হবে (শেষ লাইনে না দিলেও চলে)।
+// id: প্রতিটি মণ্ডপের আলাদা নম্বর। নিচের ভাড়ার তালিকায় এই নম্বর দিয়ে মণ্ডপ চেনা হয়। একই নম্বর দুবার দেবেন না।
+// লোকেশন (lat, lng) পাওয়ার উপায়: ফাইল খোলার ঠিকানার শেষে ?edit যোগ করুন,
+// তারপর ম্যাপে মণ্ডপের জায়গায় ট্যাপ করলে সংখ্যা দেখা যাবে।
+const MANDAPS = [
+  { id: 1, name: "জামরুলতলা সর্বজনীন পূজা মন্দির", area: "জামরুলতলা", lat: 23.4886359, lng: 89.4150 },
+  { id: 2, name: "জামরুলতলা সিকদার বাড়ি পূজা মন্দির", area: "জামরুলতলা", lat: 23.4885848, lng: 89.4268686 },
+  { id: 3, name: "তাতিপাড়া সর্বজনীন পূজা মন্দির", area: "তাতিপাড়া", lat: 23.4836648, lng: 89.4276022 },
+  { id: 4, name: "সাদ্দৌয়া আশ্রম", area: "সাদ্দৌয়া", lat: 23.4865882, lng: 89.4323302 },
+  { id: 5, name: "বেলতলা মন্দির , সাদ্দৌয়া", area: "সাদ্দৌয়া", lat: 23.4869123, lng: 89.4310012 },
+  { id: 6, name: "সাহাপাড়া নতুন বাজার স্মৃতি সংঘ", area: "নতুন বাজার", lat: 23.4929247, lng: 89.4139189 },
+  { id: 7, name: "ছানাবাবুর বটতলা", area: "নতুন বাজার", lat: 23.4959645, lng: 89.4113262 },
+  { id: 8, name: "নিতাই গৌর গোপাল সেবাশ্রম", area: "নতুন বাজার", lat: 23.4960995, lng: 89.4130904 },
+  { id: 9, name: "পারনান্দুয়ালী বৌ বাজার", area: "পারনান্দুয়ালী", lat: 23.4928389, lng: 89.4285195 }
+];
+
+// যানের তালিকা। normal/puja হলো শুধু "আমার অবস্থান" থেকে যাওয়ার আনুমানিক হার (কিমি হিসাবে)।
+// perKm = প্রতি কিলোমিটারে, min = সর্বনিম্ন ভাড়া। key নিচের PAIR_FARES-এর নামের সঙ্গে মিলতে হবে।
+// perPerson: true মানে ওই যানের ভাড়া জনপ্রতি (PAIR_FARES-এও জনপ্রতি ভাড়া লিখবেন); না থাকলে পুরো গাড়ির ভাড়া।
+const FARES = [
+  { key: "rickshaw", name: "রিকশা",         normal: { perKm: 20, min: 20 }, puja: { perKm: 30, min: 30 } },
+  { key: "van",      name: "ভ্যান",         normal: { perKm: 15, min: 15 }, puja: { perKm: 25, min: 25 } },
+  { key: "auto",     name: "অটো/ইজিবাইক", perPerson: true, normal: { perKm: 15, min: 20 }, puja: { perKm: 20, min: 30 } }
+];
+
+// মণ্ডপ থেকে মণ্ডপের নির্দিষ্ট ভাড়া (টাকা), প্রতিটি [সাধারণ দিন, পূজার সময়]।
+// a ও b হলো মণ্ডপের id। a থেকে b আর b থেকে a-এর ভাড়া একই ধরা হয়।
+// কোনো যানের ভাড়া না দিলে ওই ঘরে "–" দেখাবে। নিচের দুটি লাইন শুধু নমুনা – বদলে নিন।
+const PAIR_FARES = [
+  { a: 1, b: 2, rickshaw: [20, 30], van: [15, 25], auto: [20, 30] },
+  { a: 1, b: 3, rickshaw: [30, 40], auto: [30, 40] }
+];
+
+// জরুরি নম্বর। number ফাঁকা থাকলে কল বাটন দেখাবে না।
+const EMERGENCY = [
+  { name: "জাতীয় জরুরি সেবা",   note: "পুলিশ, ফায়ার সার্ভিস ও অ্যাম্বুলেন্স – ২৪ ঘণ্টা, বিনা মূল্যে", number: "999", red: true },
+  { name: "মাগুরা পুলিশ",         note: "Officer in Charge (OC)",       number: "01320-145170" },
+  { name: "মাগুরা পুলিশ",         note: "Inspector (Investigation)",    number: "01320-145171" },
+  { name: "মাগুরা পুলিশ",         note: "Inspector (Operations)",       number: "01320-145172" },
+  { name: "মাগুরা পুলিশ",         note: "Duty Officer",                 number: "01320-145175" },
+  { name: "মাগুরা ফায়ার সার্ভিস", note: "", number: "01901022868" }
+];
+
+/* =====================================================
+   ২) নিচের অংশ প্রোগ্রামের কাজ
+   ===================================================== */
+
+const $ = id => document.getElementById(id);
+const bn = (n, d = 0) => n.toLocaleString("bn-BD", { maximumFractionDigits: d });
+
+// ---- সময় অনুযায়ী থিম: সকাল-দুপুর সাদা, বিকেল-সন্ধ্যা ধূসর, রাত নীলচে কালো ----
+// পরীক্ষার জন্য ঠিকানার শেষে ?theme=day / ?theme=dusk / ?theme=night লিখুন
+function applyTheme() {
+  const forced = new URLSearchParams(location.search).get("theme");
+  const h = new Date().getHours();
+  const auto = (h >= 6 && h < 16) ? "day" : (h >= 16 && h < 19) ? "dusk" : "night";
+  document.documentElement.dataset.theme = forced || auto;
+}
+applyTheme();
+setInterval(applyTheme, 60000);
+
+// ---- উপরের তিন ভাগ ----
+document.querySelectorAll("#tabs button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll("#tabs button, .view").forEach(e => e.classList.remove("on"));
+    btn.classList.add("on");
+    $("v-" + btn.dataset.tab).classList.add("on");
+    if (btn.dataset.tab === "map") map.invalidateSize();
+  };
+});
+
+// ---- ম্যাপ ----
+const map = L.map("map", { zoomControl: false }).setView(CENTER, 14);
+L.control.zoom({ position: "bottomleft" }).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
+
+const pinIcon = L.divIcon({ className: "", html: '<div class="pin">🛕</div>', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18] });
+const meIcon  = L.divIcon({ className: "", html: '<div class="me"></div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+
+const markers = MANDAPS.map((m, i) => {
+  const box = document.createElement("div");
+  box.innerHTML = "<b>" + m.name + "</b><br>" + m.area + "<br>";
+  const btn = document.createElement("button");
+  btn.className = "mini"; btn.textContent = "এখানে যান";
+  btn.onclick = () => setDest(String(i));
+  box.appendChild(btn);
+  return L.marker([m.lat, m.lng], { icon: pinIcon }).addTo(map).bindPopup(box);
+});
+
+// ?edit থাকলে ম্যাপে ট্যাপ করে লোকেশনের সংখ্যা দেখা যাবে
+if (location.search.includes("edit")) {
+  map.on("click", e => L.popup().setLatLng(e.latlng)
+    .setContent("<b>" + e.latlng.lat.toFixed(5) + ", " + e.latlng.lng.toFixed(5) + "</b>").openOn(map));
+}
+
+// ---- ড্রপডাউন ----
+const options = MANDAPS.map((m, i) => '<option value="' + i + '">' + m.name + " – " + m.area + "</option>").join("");
+$("fromMap").innerHTML = '<option value="me">📍 আমার অবস্থান</option>' + options;
+$("toMap").innerHTML   = '<option value="">সব মণ্ডপ দেখান</option>' + options;
+$("toFare").innerHTML  = '<option value="">গন্তব্য বেছে নিন</option>' + options;
+$("people").innerHTML = [1, 2, 3, 4, 5, 6].map(n => '<option value="' + n + '">' + bn(n) + " জন</option>").join("");
+$("fromFare").innerHTML = '<option value="me">📍 আমার বর্তমান অবস্থান</option>' + options;
+
+// ---- জরুরি নম্বর: নম্বরের ঠিক নিচে কল বাটন ----
+EMERGENCY.forEach(e => {
+  const card = document.createElement("div");
+  card.className = "card emg" + (e.red ? " red" : "");
+  let html = "<b>" + e.name + "</b>" + (e.note ? "<small>" + e.note + "</small>" : "");
+  html += e.number
+    ? '<div class="num">' + e.number + '</div><a class="call" href="tel:' + e.number + '">📞 কল করুন</a>'
+    : '<div class="empty">নম্বর এখনো যোগ করা হয়নি</div>';
+  card.innerHTML = html;
+  $("emgList").appendChild(card);
+});
+
+// ---- দূরত্ব ও রুট ----
+function straightKm(a, b) {            // সরলরেখার দূরত্ব (কিমি)
+  const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+const cache = {};                      // একই রুট বারবার না খোঁজার জন্য
+const lngLat = (a, b) => a[1] + "," + a[0] + ";" + b[1] + "," + b[0];
+
+// গাড়ির পথ: একাধিক পথ আনে, ছোট থেকে বড় সাজায় (০ নম্বরটাই সবচেয়ে ছোট পথ)
+function getRoutes(a, b) {
+  const key = "car|" + lngLat(a, b);
+  cache[key] = cache[key] || fetch(
+    "https://router.project-osrm.org/route/v1/driving/" + lngLat(a, b) +
+    "?overview=full&geometries=geojson&alternatives=true")
+    .then(r => r.json())
+    .then(d => d.routes.map(r => ({ km: r.distance / 1000, geo: r.geometry, exact: true }))
+                       .sort((x, y) => x.km - y.km))
+    .catch(() => { delete cache[key]; return [{ km: straightKm(a, b) * 1.3, geo: null, exact: false }]; });
+  return cache[key];
+}
+
+// হাঁটার সময় (মিনিট): হাঁটার পথ ধরে। না পেলে ঘণ্টায় ৫ কিমি ধরে হিসাব
+function getWalk(a, b) {
+  const key = "foot|" + lngLat(a, b);
+  cache[key] = cache[key] || fetch(
+    "https://routing.openstreetmap.de/routed-foot/route/v1/driving/" + lngLat(a, b) + "?overview=false")
+    .then(r => r.json())
+    .then(d => ({ min: d.routes[0].duration / 60 }))
+    .catch(() => { delete cache[key]; return { min: straightKm(a, b) * 1.3 / 5 * 60 }; });
+  return cache[key];
+}
+
+function fmtTime(min) {
+  min = Math.max(1, Math.round(min));
+  if (min < 60) return bn(min) + " মিনিট";
+  const h = Math.floor(min / 60), r = min % 60;
+  return bn(h) + " ঘণ্টা" + (r ? " " + bn(r) + " মিনিট" : "");
+}
+
+const fare = (km, r) => Math.max(r.min, Math.round(km * r.perKm / 5) * 5);
+
+// ---- আমার অবস্থান ----
+let me = null, meMarker = null, dest = null, routeLayers = [];
+
+function fitAll() {
+  const pts = MANDAPS.map(m => [m.lat, m.lng]);
+  if (me && straightKm(me, CENTER) < 30) pts.push(me);   // মাগুরা থেকে অনেক দূরে থাকলে ম্যাপ ছোট হয়ে যাবে, তাই বাদ
+  map.fitBounds(pts, { paddingTopLeft: [40, 150], paddingBottomRight: [40, 70] });
+}
+
+function watchMe() {
+  if (!navigator.geolocation) { $("chip").textContent = "এই ব্রাউজারে লোকেশন সুবিধা নেই।"; return; }
+  navigator.geolocation.watchPosition(p => {
+    const first = !me;
+    me = [p.coords.latitude, p.coords.longitude];
+    if (meMarker) meMarker.setLatLng(me);
+    else meMarker = L.marker(me, { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
+    if (first) { dest === null ? fitAll() : updateRoute(); }
+  }, () => {},   // লোকেশন না পেলে কিছু দেখানো হবে না
+  { enableHighAccuracy: true, maximumAge: 10000 });
+}
+
+$("locate").onclick = () => { if (me) map.setView(me, 16); else watchMe(); };
+
+// ---- শুরু ও গন্তব্য বাছাই (ম্যাপ ও ভাড়া, দুই জায়গায় একসাথে বদলায়) ----
+function setDest(v) {
+  dest = v === "" ? null : Number(v);
+  $("toMap").value = v; $("toFare").value = v;
+  updateRoute();
+}
+
+function setFrom(v) {
+  $("fromMap").value = v; $("fromFare").value = v;
+  updateRoute();
+}
+
+// শুরুর জায়গা: "me" হলে আমার অবস্থান, নইলে বাছা মণ্ডপ
+function startPoint() {
+  const v = $("fromMap").value;
+  return v === "me" ? me : [MANDAPS[v].lat, MANDAPS[v].lng];
+}
+
+function clearRoutes() { routeLayers.forEach(l => map.removeLayer(l)); routeLayers = []; }
+
+// সব পথ আঁকে: বাছা পথ লাল ও মোটা, বাকিগুলো ধূসর (ট্যাপ করলে সেটা বাছা হয়)
+function drawRoutes(a, b, routes, sel, onPick) {
+  clearRoutes();
+  routes.map((_, i) => i).sort((x, y) => (x === sel) - (y === sel)).forEach(i => {   // বাছা পথ সবার উপরে
+    const on = i === sel;
+    const style = { color: on ? "#E53935" : "#8A8FA3", weight: on ? 7 : 8, opacity: on ? 1 : .85 };
+    const line = routes[i].geo ? L.geoJSON(routes[i].geo, { style })
+                               : L.polyline([a, b], { ...style, dashArray: "8 8" });
+    line.on("click", () => onPick(i)).addTo(map);
+    routeLayers.push(line);
+  });
+}
+
+async function updateRoute() {
+  const idx = dest, from = $("fromMap").value;
+  clearRoutes();
+  $("chip").textContent = "";
+  showFare();
+  if (idx === null) { fitAll(); return; }
+
+  const m = MANDAPS[idx], b = [m.lat, m.lng], a = startPoint();
+  if (from !== "me" && Number(from) === idx) {
+    $("chip").innerHTML = '<span class="err">শুরু আর গন্তব্য একই। আলাদা মণ্ডপ বেছে নিন।</span>';
+    return;
+  }
+  if (!a) {
+    map.setView(b, 16); markers[idx].openPopup();
+    $("chip").innerHTML = '<span class="err">আপনার অবস্থান পাওয়া যায়নি। ফোনের লোকেশন চালু করুন, অথবা শুরুতে একটি মণ্ডপ বেছে নিন।</span>';
+    return;
+  }
+  $("chip").textContent = "রুট খোঁজা হচ্ছে…";
+  const [routes, walk] = await Promise.all([getRoutes(a, b), getWalk(a, b)]);
+  if (dest !== idx || $("fromMap").value !== from) return;   // এর মধ্যে অন্য কিছু বাছা হলে থেমে যাও
+
+  const show = sel => {
+    const r = routes[sel];
+    drawRoutes(a, b, routes, sel, show);
+    $("chip").innerHTML = "<div>" + m.name + "</div><div>" + bn(r.km, 1) + " কিমি" + (r.exact ? "" : " (আনুমানিক)") +
+      ", হেঁটে প্রায় " + fmtTime(walk.min) + "</div>" +
+      (routes.length > 1 ? '<div class="note">' + (sel === 0
+        ? "সবচেয়ে ছোট পথ। অন্য পথ দেখতে ধূসর রেখায় ট্যাপ করুন।"
+        : "এটা সবচেয়ে ছোট পথ নয়। ছোট পথে ফিরতে ধূসর রেখায় ট্যাপ করুন।") + "</div>" : "");
+  };
+  show(0);
+  map.fitBounds(L.featureGroup(routeLayers).getBounds(), { paddingTopLeft: [40, 200], paddingBottomRight: [40, 70] });
+}
+
+$("toMap").onchange    = e => setDest(e.target.value);
+$("toFare").onchange   = e => setDest(e.target.value);
+$("fromMap").onchange  = e => setFrom(e.target.value);
+$("fromFare").onchange = e => setFrom(e.target.value);
+$("people").onchange   = showFare;
+
+// ---- ভাড়া ----
+async function showFare() {
+  const out = $("fareOut");
+  if (dest === null) { out.innerHTML = ""; return; }
+  const m = MANDAPS[dest], from = $("fromFare").value;
+  const people = Number($("people").value) || 1;
+  // জনপ্রতি ভাড়ার যানে যাত্রী সংখ্যা দিয়ে গুণ হয়; অন্য যানে পুরো গাড়ির ভাড়া
+  const cell = (v, f) => {
+    if (!v) return "–";
+    if (!f.perPerson) return "৳" + bn(v);
+    return "৳" + bn(v * people) + (people > 1 ? '<br><small class="note">৳' + bn(v) + " × " + bn(people) + "</small>" : "");
+  };
+  const label = f => f.name + (f.perPerson ? " (জনপ্রতি)" : "");
+  const table = rows => "<table><tr><th>যান</th><th>সাধারণ দিন</th><th>পূজার সময়</th></tr>" + rows + "</table>";
+  const note = '<p class="note">ভাড়া আনুমানিক। আসল ভাড়া চালকের সঙ্গে কথা বলে ঠিক হবে।</p>';
+
+  // শুরু একটি মণ্ডপ হলে: আগে থেকে ঠিক করা ভাড়া
+  if (from !== "me") {
+    const s0 = MANDAPS[from];
+    if (s0 === m) { out.innerHTML = '<p class="err">শুরু আর গন্তব্য একই। আলাদা মণ্ডপ বেছে নিন।</p>'; return; }
+    const p = PAIR_FARES.find(x => (x.a === s0.id && x.b === m.id) || (x.a === m.id && x.b === s0.id));
+    if (!p) { out.innerHTML = '<p class="empty">এই দুই মণ্ডপের ভাড়া সেট করা নেই।</p>'; return; }
+    out.innerHTML = "<div><b>" + s0.name + "</b></div><div>থেকে <b>" + m.name + "</b></div>" +
+      table(FARES.map(f => { const v = p[f.key] || [];
+        return "<tr><td>" + label(f) + "</td><td>" + cell(v[0], f) + "</td><td>" + cell(v[1], f) + "</td></tr>"; }).join("")) + note;
+    return;
+  }
+
+  // শুরু "আমার অবস্থান" হলে: আগে থেকে ঠিক করা ভাড়া নেই, তাই কিমি হিসাবে আনুমানিক
+  if (!me) { out.innerHTML = '<p class="err">আপনার অবস্থান পাওয়া যায়নি। ফোনের লোকেশন চালু করুন, অথবা শুরুতে একটি মণ্ডপ বেছে নিন।</p>'; return; }
+  out.innerHTML = "<p>হিসাব হচ্ছে…</p>";
+  const idx = dest;
+  const km = (await getRoutes(me, [m.lat, m.lng]))[0].km;
+  if (dest !== idx || $("fromFare").value !== from) return;
+  out.innerHTML = '<div class="big">' + bn(km, 1) + " কিমি</div><div>" + m.name + " – " + m.area + "</div>" +
+    table(FARES.map(f => "<tr><td>" + label(f) + "</td><td>" + cell(fare(km, f.normal), f) + "</td><td>" +
+      cell(fare(km, f.puja), f) + "</td></tr>").join("")) +
+    '<p class="note">আমার অবস্থান থেকে ভাড়া কিমি হিসাবে আনুমানিক।</p>' + note;
+}
+
+// ---- শুরু ----
+fitAll();
+showFare();
+watchMe();
+</script>
+</body>
+</html>
