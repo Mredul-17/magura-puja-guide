@@ -388,26 +388,30 @@ function straightKm(a, b) {            // সরলরেখার দূরত�
 const cache = {};                      // একই রুট বারবার না খোঁজার জন্য
 const lngLat = (a, b) => a[1] + "," + a[0] + ";" + b[1] + "," + b[0];
 
-// রুট সার্ভিসকে একটি রুট (alt = true হলে বিকল্পসহ) চাওয়া। ব্যর্থ হলে ফাঁকা তালিকা ফেরত দেয়
-async function fetchRoute(path, alt) {
-  const base = "https://router.project-osrm.org/route/v1/driving/" + path + "?overview=full&geometries=geojson";
-  for (const url of alt ? [base + "&alternatives=3", base] : [base]) {
+// রুট সার্ভিস: হাঁটার পথ (গলি ও শর্টকাটসহ) আর গাড়ি/অটোর পথ, দুটোই চাওয়া হয় এবং একসাথে মেলানো হয়
+const ROUTE_URL = {
+  foot: "https://routing.openstreetmap.de/routed-foot/route/v1/driving/",
+  car:  "https://router.project-osrm.org/route/v1/driving/"
+};
+
+// সার্ভিসের কাছে রুট চাওয়া। ব্যর্থ হলে ফাঁকা তালিকা ফেরত দেয়
+// min = হাঁটতে কত মিনিট (হাঁটার সার্ভিসে সরাসরি আছে; গাড়ির পথে ঘণ্টায় ৫ কিমি ধরে হিসাব)
+async function fetchRoute(mode, path) {
+  const base = ROUTE_URL[mode] + path + "?overview=full&geometries=geojson";
+  for (const url of [base + "&alternatives=3", base]) {
     try {
       const d = await (await fetch(url)).json();
-      if (d.routes && d.routes.length) return d.routes.map(x => ({ km: x.distance / 1000, geo: x.geometry, exact: true }));
+      if (d.routes && d.routes.length)
+        return d.routes.map(x => ({
+          km: x.distance / 1000, geo: x.geometry, exact: true,
+          min: mode === "foot" ? x.duration / 60 : x.distance / 1000 / 5 * 60
+        }));
     } catch (e) {}
   }
   return [];
 }
 
 const pt = p => p[1] + "," + p[0];
-
-// ভিন্ন রাস্তা পেতে: সোজা রেখার মাঝখান থেকে দুই পাশে একটু সরে একটা করে "মাঝের বিন্দু" ধরা হয়
-function sideVias(a, b) {
-  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const dLng = b[1] - a[1], dLat = b[0] - a[0];
-  return [1, -1].map(side => [mid[0] + side * 0.3 * dLng, mid[1] - side * 0.3 * dLat]);
-}
 
 // দুটি পথ প্রায় একই কিনা (একটির বেশিরভাগ বিন্দু অন্যটির ৮০ মিটারের মধ্যে থাকলে একই ধরা হয়)
 function similar(r1, r2) {
@@ -422,41 +426,31 @@ function similar(r1, r2) {
   return near / total > 0.85;
 }
 
-// সব পথ থেকে সবচেয়ে ছোট থেকে শুরু করে সর্বোচ্চ ৩টি আলাদা পথ বাছা
+// সবচেয়ে ছোট পথ আগে; সার্ভিস নিজে যে বিকল্প দেয় তার মধ্যে অল্প লম্বা ও আলাদা পথগুলোই রাখা হয় (সর্বোচ্চ ৩টি)
 function pickRoutes(all) {
   all.sort((x, y) => x.km - y.km);
   const best = all[0].km, kept = [];
   for (const r of all) {
     if (kept.length === 3) break;
-    if (r.km > best * 1.6 + 0.2) continue;                // অনেক ঘুরপথ বাদ
+    if (r.km > best * 1.3 + 0.15) continue;                // ঘুরপথ বাদ: সবচেয়ে ছোটটির চেয়ে অনেক লম্বা পথ দেখানো হয় না
     if (kept.some(k => similar(r, k))) continue;           // প্রায় একই পথ বাদ
     kept.push(r);
   }
   return kept;
 }
 
-// গাড়ির পথ: সোজা রুট (বিকল্পসহ) আর দুই পাশ ঘুরে যাওয়া রুট একসাথে চেয়ে সেরা কয়েকটি আলাদা পথ দেয়
-// ফল ছোট থেকে বড় সাজানো (০ নম্বরটাই সবচেয়ে ছোট পথ)
+// সব পথ একসাথে মিলিয়ে সেরা কয়েকটি আলাদা পথ দেয়; ছোট থেকে বড় সাজানো (০ নম্বরটাই সবচেয়ে ছোট পথ)
 function getRoutes(a, b) {
-  const key = "car|" + lngLat(a, b);
-  cache[key] = cache[key] || (async () => {
-    const jobs = [fetchRoute(pt(a) + ";" + pt(b), true)]
-      .concat(sideVias(a, b).map(v => fetchRoute(pt(a) + ";" + pt(v) + ";" + pt(b), false)));
-    const all = (await Promise.all(jobs)).flat();
-    if (!all.length) { delete cache[key]; return [{ km: straightKm(a, b) * 1.3, geo: null, exact: false }]; }
+  const key = lngLat(a, b), path = pt(a) + ";" + pt(b);
+  cache[key] = cache[key] || Promise.all([fetchRoute("foot", path), fetchRoute("car", path)]).then(([foot, car]) => {
+    const all = foot.concat(car);
+    if (!all.length) {
+      delete cache[key];
+      const km = straightKm(a, b) * 1.3;
+      return [{ km, min: km / 5 * 60, geo: null, exact: false }];   // সার্ভিস না পেলে সরলরেখা, ঘণ্টায় ৫ কিমি ধরে
+    }
     return pickRoutes(all);
-  })();
-  return cache[key];
-}
-
-// হাঁটার সময় (মিনিট): হাঁটার পথ ধরে। না পেলে ঘণ্টায় ৫ কিমি ধরে হিসাব
-function getWalk(a, b) {
-  const key = "foot|" + lngLat(a, b);
-  cache[key] = cache[key] || fetch(
-    "https://routing.openstreetmap.de/routed-foot/route/v1/driving/" + lngLat(a, b) + "?overview=false")
-    .then(r => r.json())
-    .then(d => ({ min: d.routes[0].duration / 60 }))
-    .catch(() => { delete cache[key]; return { min: straightKm(a, b) * 1.3 / 5 * 60 }; });
+  });
   return cache[key];
 }
 
@@ -543,14 +537,14 @@ async function updateRoute() {
     return;
   }
   $("chip").textContent = t("searching");
-  const [routes, walk] = await Promise.all([getRoutes(a, b), getWalk(a, b)]);
+  const routes = await getRoutes(a, b);
   if (dest !== idx || $("fromMap").value !== from) return;   // এর মধ্যে অন্য কিছু বাছা হলে থেমে যাও
 
   const show = sel => {
     const r = routes[sel];
     drawRoutes(a, b, routes, sel, show);
     $("chip").innerHTML = "<div>" + nm(m) + "</div><div>" + t("dist")(num(r.km, 1)) + (r.exact ? "" : " " + t("approx")) +
-      ", " + t("walkText")(fmtTime(walk.min)) + "</div>" +
+      ", " + t("walkText")(fmtTime(r.min)) + "</div>" +
       (routes.length > 1
         ? '<div class="rbtns">' + routes.map((x, i) => '<button class="rbtn' + (i === sel ? " on" : "") + '" data-i="' + i + '">' +
             t("routeN")(i + 1) + ": " + t("dist")(num(x.km, 1)) + "</button>").join("") + "</div>" +
