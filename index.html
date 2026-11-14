@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap">
 <style>
+  /* ===== থিমের রং: সময় অনুযায়ী data-theme বদলায় (day / dusk / night) ===== */
   :root { --bg:#F6F7FB; --card:#FFFFFF; --ink:#1E2540; --muted:#555B73; --line:#DDE1EC;
           --gold:#F2A900; --red:#C62828; --green:#2E7D5B; --tile:none; }
   html[data-theme="dusk"]  { --bg:#383840; --card:#45454E; --ink:#F3EFE8; --muted:#BEB9B1; --line:#5C5C66;
@@ -19,6 +20,7 @@
   body { display:flex; flex-direction:column; background:var(--bg); color:var(--ink);
          font-family:"Hind Siliguri", system-ui, sans-serif; line-height:1.5; transition:background .8s, color .8s; }
 
+  /* উপরের দুটি ভাগ: ম্যাপ (চওড়া) ও জরুরি কল (এক-তৃতীয়াংশ) */
   #tabs { display:flex; gap:8px; padding:8px 10px; background:var(--card); border-bottom:1px solid var(--line); }
   #tabs button { flex:1; padding:11px 4px; border:1.5px solid var(--line); border-radius:10px; background:var(--bg);
                  color:var(--ink); font:inherit; font-size:1rem; font-weight:600; box-shadow:0 2px 0 var(--line); }
@@ -35,11 +37,16 @@
   .leaflet-tile-pane { filter:var(--tile); }
   .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--card); color:var(--ink); }
 
+  /* ম্যাপের উপরের গন্তব্য বাছাইয়ের বক্স */
   #bar { position:absolute; top:10px; left:10px; right:10px; max-width:520px; z-index:1000;
          background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
          box-shadow:0 4px 14px rgba(0,0,0,.25); }
   #chip { font-weight:600; margin-top:6px; }
   #chip:empty { display:none; }
+  .rbtns { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .rbtn { border:1.5px solid var(--line); background:var(--bg); color:var(--ink); border-radius:8px; padding:4px 9px;
+          font:inherit; font-size:.85rem; font-weight:600; }
+  .rbtn.on { background:#E53935; border-color:#E53935; color:#fff; }
   #locate, #gear { position:absolute; right:10px; bottom:34px; z-index:1000; width:46px; height:46px; border-radius:50%;
             border:1px solid var(--line); background:var(--card); color:#1A73E8; display:grid; place-items:center; padding:0;
             box-shadow:0 3px 10px rgba(0,0,0,.3); }
@@ -57,6 +64,7 @@
   .empty { color:var(--muted); }
   .mini { border:1px solid var(--gold); background:var(--gold); color:#1E2540; padding:6px 10px; border-radius:6px; font:inherit; font-weight:600; }
 
+  /* মানচিত্রের পিন */
   .pin { width:34px; height:34px; border-radius:50%; background:var(--gold); border:2px solid #fff;
          display:grid; place-items:center; font-size:18px; box-shadow:0 2px 6px rgba(0,0,0,.4); }
   .pin.veg { background:#2E7D5B; }
@@ -64,10 +72,12 @@
   .me { width:20px; height:20px; border-radius:50%; background:#1A73E8; border:3px solid #fff;
         box-shadow:0 0 0 7px rgba(26,115,232,.28); }
 
+  /* মণ্ডপের নামের লেবেল */
   .mlabel { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:6px;
             font-weight:600; padding:2px 7px; box-shadow:0 2px 6px rgba(0,0,0,.25); }
   .mlabel.leaflet-tooltip-right::before { border-right-color:var(--card); }
 
+  /* জরুরি কল */
   .emg { border-left:5px solid var(--gold); }
   .emg.red { border-left-color:var(--red); }
   .emg b { display:block; font-size:1.05rem; }
@@ -77,6 +87,7 @@
           padding:12px; border-radius:8px; font-weight:700; }
   .red .call { background:var(--red); }
 
+  /* সেটিংস ও ভাষা বাছাইয়ের পর্দা */
   .overlay { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; }
   .overlay[hidden] { display:none; }
   #gate { align-items:center; }
@@ -136,6 +147,7 @@
   </div>
 </div>
 
+<!-- প্রথমবার খুললে ভাষা জিজ্ঞেস করা হয় -->
 <div id="gate" class="overlay" hidden>
   <div class="panel">
     <h2>ভাষা বাছুন / Choose language</h2>
@@ -146,9 +158,18 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
+/* =====================================================
+   ১) এখানে আপনার নিজের তথ্য বসান
+   ===================================================== */
 
+// মাগুরা শহরের মাঝামাঝি একটি পয়েন্ট
 const CENTER = [23.4855, 89.4198];
 
+// মণ্ডপের তালিকা। প্রতিটি লাইনের শেষে কমা (,) দিতে হবে (শেষ লাইনে না দিলেও চলে)।
+// name = বাংলা নাম, nameEn = ইংরেজি নাম, area/areaEn = এলাকা (না দিলেও চলে)।
+// type: "restaurant" দিলে নিরামিষ রেস্টুরেন্টের আইকন, type: "hospital" দিলে হাসপাতালের আইকন দেখায় (না দিলে মন্দিরের)।
+// লোকেশন (lat, lng) পাওয়ার উপায়: ফাইল খোলার ঠিকানার শেষে ?edit যোগ করুন,
+// তারপর ম্যাপে মণ্ডপের জায়গায় ট্যাপ করলে সংখ্যা দেখা যাবে।
 const MANDAPS = [
   { name: "জামরুলতলা সর্বজনীন পূজা মন্দির", nameEn: "Jamrultala Sarbojanin Puja Mandir", area: "জামরুলতলা", areaEn: "Jamrultala", lat: 23.4886617, lng: 89.4268502 },
   { name: "জামরুলতলা সিকদার বাড়ি পূজা মন্দির", nameEn: "Jamrultala Sikdar Bari Puja Mandir", area: "জামরুলতলা", areaEn: "Jamrultala", lat: 23.4885848, lng: 89.4268686 },
@@ -169,6 +190,8 @@ const MANDAPS = [
   { type: "hospital", name: "মাগুরা সদর হাসপাতাল", nameEn: "Magura Sadar Hospital", lat: 23.4859243, lng: 89.4219635 }
 ];
 
+// জরুরি নম্বর। number ফাঁকা থাকলে কল বাটন দেখাবে না।
+// মাগুরার নম্বর যাচাই করে নিজে বসান (যেমন "01XXXXXXXXX")।
 const EMERGENCY = [
   { name: "জাতীয় জরুরি সেবা", nameEn: "National Emergency Service",
     note: "পুলিশ, ফায়ার সার্ভিস ও অ্যাম্বুলেন্স – ২৪ ঘণ্টা, বিনা মূল্যে", noteEn: "Police, Fire Service and Ambulance – 24 hours, free of charge",
@@ -180,6 +203,7 @@ const EMERGENCY = [
   { name: "মাগুরা ফায়ার সার্ভিস", nameEn: "Magura Fire Service", note: "", noteEn: "", number: "01901022868" }
 ];
 
+// অ্যাপের সব লেখা: bn = বাংলা, en = ইংরেজি। ইংরেজিতে ভুল থাকলে এখানে ঠিক করুন।
 const TX = {
   bn: {
     title: "মাগুরা কাত্যায়নী পূজা – মণ্ডপ গাইড", tabMap: "ম্যাপ", tabCall: "জরুরি কল", from: "থেকে", to: "যাব",
@@ -190,9 +214,9 @@ const TX = {
     searching: "রুট খোঁজা হচ্ছে…", same: "শুরু আর গন্তব্য একই। আলাদা মণ্ডপ বেছে নিন।",
     noLoc: "আপনার অবস্থান পাওয়া যায়নি। ফোনের লোকেশন চালু করুন, অথবা শুরুতে একটি মণ্ডপ বেছে নিন।",
     approx: "(আনুমানিক)", noGeo: "এই ব্রাউজারে লোকেশন সুবিধা নেই।",
-    shortest: "সবচেয়ে ছোট পথ। অন্য পথ দেখতে ধূসর রেখায় ট্যাপ করুন।",
-    other: "এটা সবচেয়ে ছোট পথ নয়। ছোট পথে ফিরতে ধূসর রেখায় ট্যাপ করুন।",
-    min: "মিনিট", hour: "ঘণ্টা", dist: x => x + " কিমি", walkText: x => "হেঁটে প্রায় " + x
+    shortest: "সবচেয়ে ছোট পথ দেখানো হচ্ছে। অন্য পথ দেখতে ওপরের বাটন বা ধূসর রেখায় ট্যাপ করুন।",
+    other: "এটা সবচেয়ে ছোট পথ নয়। ছোট পথে ফিরতে পথ ১-এ ট্যাপ করুন।",
+    min: "মিনিট", hour: "ঘণ্টা", dist: x => x + " কিমি", walkText: x => "হেঁটে প্রায় " + x, routeN: n => "পথ " + num(n)
   },
   en: {
     title: "Magura Katyayani Puja – Mandap Guide", tabMap: "Map", tabCall: "Emergency", from: "From", to: "To",
@@ -203,15 +227,19 @@ const TX = {
     searching: "Finding route…", same: "Start and destination are the same. Choose a different mandap.",
     noLoc: "Your location was not found. Turn on location on your phone, or pick a mandap as the starting point.",
     approx: "(approx.)", noGeo: "Location is not available in this browser.",
-    shortest: "Shortest route. Tap a grey line to see another route.",
-    other: "This is not the shortest route. Tap the grey line to go back to the shortest one.",
-    min: "min", hour: "h", dist: x => x + " km", walkText: x => "About " + x + " on foot"
+    shortest: "Showing the shortest route. Tap another route button or a grey line to see it.",
+    other: "This is not the shortest route. Tap Route 1 to go back to the shortest one.",
+    min: "min", hour: "h", dist: x => x + " km", walkText: x => "About " + x + " on foot", routeN: n => "Route " + n
   }
 };
 
+/* =====================================================
+   ২) নিচের অংশ প্রোগ্রামের কাজ
+   ===================================================== */
 
 const $ = id => document.getElementById(id);
 
+// ব্যবহারকারীর পছন্দ ফোনে মনে রাখা (সম্ভব না হলে চুপচাপ বাদ)
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -224,6 +252,8 @@ const num = (n, d = 0) => n.toLocaleString(lang === "en" ? "en-US" : "bn-BD", { 
 const nm = m => (lang === "en" && m.nameEn) || m.name;
 const ar = m => lang === "en" ? m.areaEn : m.area;
 
+// ---- সময় অনুযায়ী থিম: সকাল-দুপুর সাদা, বিকেল-সন্ধ্যা ধূসর, রাত নীলচে কালো ----
+// ব্যবহারকারী "লাইট" বাছলে সবসময় সাদা। পরীক্ষার জন্য ঠিকানার শেষে ?theme=day / dusk / night লিখুন
 function applyTheme() {
   const forced = new URLSearchParams(location.search).get("theme");
   const h = new Date().getHours();
@@ -231,6 +261,7 @@ function applyTheme() {
   document.documentElement.dataset.theme = forced || (themePref === "light" ? "day" : auto);
 }
 
+// ---- উপরের দুই ভাগ ----
 document.querySelectorAll("#tabs button").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll("#tabs button, .view").forEach(e => e.classList.remove("on"));
@@ -240,6 +271,7 @@ document.querySelectorAll("#tabs button").forEach(btn => {
   };
 });
 
+// ---- ম্যাপ ----
 const map = L.map("map", { zoomControl: false }).setView(CENTER, 14);
 L.control.zoom({ position: "bottomleft" }).addTo(map);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(map);
@@ -262,6 +294,8 @@ function popupFor(m, i) {
 const markers = MANDAPS.map((m, i) =>
   L.marker([m.lat, m.lng], { icon: m.type === "restaurant" ? vegIcon : m.type === "hospital" ? hospIcon : pinIcon }).addTo(map).bindPopup(popupFor(m, i)));
 
+// ---- জুম অনুযায়ী মণ্ডপের নাম ----
+// ম্যাপ ছোট (জুম ১৪ বা কম): নাম নেই। জুম ১৫: নামের প্রথম শব্দ। জুম ১৬: প্রথম দুই শব্দ। জুম ১৭+: পুরো নাম।
 function labelText(name, zoom) {
   if (zoom < 15) return "";
   const words = name.split(" ");
@@ -278,11 +312,13 @@ function updateLabels() {
 }
 map.on("zoomend", updateLabels);
 
+// ?edit থাকলে ম্যাপে ট্যাপ করে লোকেশনের সংখ্যা দেখা যাবে
 if (location.search.includes("edit")) {
   map.on("click", e => L.popup().setLatLng(e.latlng)
     .setContent("<b>" + e.latlng.lat.toFixed(5) + ", " + e.latlng.lng.toFixed(5) + "</b>").openOn(map));
 }
 
+// ---- ভাষা অনুযায়ী সব লেখা বদলানো ----
 function fillSelects() {
   const f = $("fromMap").value || "me", d = $("toMap").value || "";
   const opts = MANDAPS.map((m, i) => '<option value="' + i + '">' + nm(m) + (ar(m) ? " – " + ar(m) : "") + "</option>").join("");
@@ -291,6 +327,7 @@ function fillSelects() {
   $("fromMap").value = f; $("toMap").value = d;
 }
 
+// জরুরি নম্বর: নম্বরের ঠিক নিচে কল বাটন
 function renderEmergency() {
   $("emgList").innerHTML = "";
   EMERGENCY.forEach(e => {
@@ -330,6 +367,8 @@ function chooseLang(l) {
   applyLang();
   startWatch();
 }
+
+// ---- সেটিংস ও ভাষা বাছাইয়ের বাটন ----
 document.querySelectorAll("#sheet [data-lang]").forEach(b => b.onclick = () => chooseLang(b.dataset.lang));
 document.querySelectorAll("#gate [data-gate]").forEach(b => b.onclick = () => chooseLang(b.dataset.gate));
 document.querySelectorAll("#sheet [data-theme-pref]").forEach(b => b.onclick = () => {
@@ -339,27 +378,78 @@ $("gear").onclick = () => { $("sheet").hidden = false; };
 $("sheetClose").onclick = () => { $("sheet").hidden = true; };
 $("sheet").onclick = e => { if (e.target === $("sheet")) $("sheet").hidden = true; };
 
-function straightKm(a, b) {            
+// ---- দূরত্ব, রুট ও হাঁটার সময় ----
+function straightKm(a, b) {            // সরলরেখার দূরত্ব (কিমি)
   const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
   return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
 
-const cache = {};                      
+const cache = {};                      // একই রুট বারবার না খোঁজার জন্য
 const lngLat = (a, b) => a[1] + "," + a[0] + ";" + b[1] + "," + b[0];
 
+// রুট সার্ভিসকে একটি রুট (alt = true হলে বিকল্পসহ) চাওয়া। ব্যর্থ হলে ফাঁকা তালিকা ফেরত দেয়
+async function fetchRoute(path, alt) {
+  const base = "https://router.project-osrm.org/route/v1/driving/" + path + "?overview=full&geometries=geojson";
+  for (const url of alt ? [base + "&alternatives=3", base] : [base]) {
+    try {
+      const d = await (await fetch(url)).json();
+      if (d.routes && d.routes.length) return d.routes.map(x => ({ km: x.distance / 1000, geo: x.geometry, exact: true }));
+    } catch (e) {}
+  }
+  return [];
+}
+
+const pt = p => p[1] + "," + p[0];
+
+// ভিন্ন রাস্তা পেতে: সোজা রেখার মাঝখান থেকে দুই পাশে একটু সরে একটা করে "মাঝের বিন্দু" ধরা হয়
+function sideVias(a, b) {
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const dLng = b[1] - a[1], dLat = b[0] - a[0];
+  return [1, -1].map(side => [mid[0] + side * 0.3 * dLng, mid[1] - side * 0.3 * dLat]);
+}
+
+// দুটি পথ প্রায় একই কিনা (একটির বেশিরভাগ বিন্দু অন্যটির ৮০ মিটারের মধ্যে থাকলে একই ধরা হয়)
+function similar(r1, r2) {
+  const c1 = r1.geo.coordinates, c2 = r2.geo.coordinates;
+  const step = Math.max(1, Math.floor(c1.length / 25));
+  let near = 0, total = 0;
+  for (let i = 0; i < c1.length; i += step) {
+    total++;
+    const p = [c1[i][1], c1[i][0]];
+    if (c2.some(q => straightKm(p, [q[1], q[0]]) < 0.08)) near++;
+  }
+  return near / total > 0.85;
+}
+
+// সব পথ থেকে সবচেয়ে ছোট থেকে শুরু করে সর্বোচ্চ ৩টি আলাদা পথ বাছা
+function pickRoutes(all) {
+  all.sort((x, y) => x.km - y.km);
+  const best = all[0].km, kept = [];
+  for (const r of all) {
+    if (kept.length === 3) break;
+    if (r.km > best * 1.6 + 0.2) continue;                // অনেক ঘুরপথ বাদ
+    if (kept.some(k => similar(r, k))) continue;           // প্রায় একই পথ বাদ
+    kept.push(r);
+  }
+  return kept;
+}
+
+// গাড়ির পথ: সোজা রুট (বিকল্পসহ) আর দুই পাশ ঘুরে যাওয়া রুট একসাথে চেয়ে সেরা কয়েকটি আলাদা পথ দেয়
+// ফল ছোট থেকে বড় সাজানো (০ নম্বরটাই সবচেয়ে ছোট পথ)
 function getRoutes(a, b) {
   const key = "car|" + lngLat(a, b);
-  cache[key] = cache[key] || fetch(
-    "https://router.project-osrm.org/route/v1/driving/" + lngLat(a, b) +
-    "?overview=full&geometries=geojson&alternatives=true")
-    .then(r => r.json())
-    .then(d => d.routes.map(r => ({ km: r.distance / 1000, geo: r.geometry, exact: true }))
-                       .sort((x, y) => x.km - y.km))
-    .catch(() => { delete cache[key]; return [{ km: straightKm(a, b) * 1.3, geo: null, exact: false }]; });
+  cache[key] = cache[key] || (async () => {
+    const jobs = [fetchRoute(pt(a) + ";" + pt(b), true)]
+      .concat(sideVias(a, b).map(v => fetchRoute(pt(a) + ";" + pt(v) + ";" + pt(b), false)));
+    const all = (await Promise.all(jobs)).flat();
+    if (!all.length) { delete cache[key]; return [{ km: straightKm(a, b) * 1.3, geo: null, exact: false }]; }
+    return pickRoutes(all);
+  })();
   return cache[key];
 }
 
+// হাঁটার সময় (মিনিট): হাঁটার পথ ধরে। না পেলে ঘণ্টায় ৫ কিমি ধরে হিসাব
 function getWalk(a, b) {
   const key = "foot|" + lngLat(a, b);
   cache[key] = cache[key] || fetch(
@@ -376,11 +466,13 @@ function fmtTime(min) {
   const h = Math.floor(min / 60), r = min % 60;
   return num(h) + " " + t("hour") + (r ? " " + num(r) + " " + t("min") : "");
 }
+
+// ---- আমার অবস্থান ----
 let me = null, meMarker = null, dest = null, routeLayers = [];
 
 function fitAll() {
   const pts = MANDAPS.map(m => [m.lat, m.lng]);
-  if (me && straightKm(me, CENTER) < 30) pts.push(me);   
+  if (me && straightKm(me, CENTER) < 30) pts.push(me);   // মাগুরা থেকে অনেক দূরে থাকলে ম্যাপ ছোট হয়ে যাবে, তাই বাদ
   map.fitBounds(pts, { paddingTopLeft: [40, 150], paddingBottomRight: [40, 70] });
 }
 
@@ -392,16 +484,16 @@ function watchMe() {
     if (meMarker) meMarker.setLatLng(me);
     else meMarker = L.marker(me, { icon: meIcon, zIndexOffset: 1000 }).addTo(map);
     if (first) { dest === null ? fitAll() : updateRoute(); }
-  }, () => {},  
+  }, () => {},   // লোকেশন না পেলে কিছু দেখানো হবে না
   { enableHighAccuracy: true, maximumAge: 10000 });
 }
 
-let watching = false;                  
+let watching = false;                  // লোকেশন চাওয়া শুরু হয়েছে কিনা (ভাষা বাছার পরে শুরু হয়)
 function startWatch() { if (!watching) { watching = true; watchMe(); } }
 
 $("locate").onclick = () => { if (me) map.setView(me, 16); else startWatch(); };
 
-
+// ---- শুরু ও গন্তব্য বাছাই ----
 function setDest(v) {
   dest = v === "" ? null : Number(v);
   $("toMap").value = v;
@@ -413,7 +505,7 @@ function setFrom(v) {
   updateRoute();
 }
 
-
+// শুরুর জায়গা: "me" হলে আমার অবস্থান, নইলে বাছা মণ্ডপ
 function startPoint() {
   const v = $("fromMap").value;
   return v === "me" ? me : [MANDAPS[v].lat, MANDAPS[v].lng];
@@ -421,7 +513,7 @@ function startPoint() {
 
 function clearRoutes() { routeLayers.forEach(l => map.removeLayer(l)); routeLayers = []; }
 
-
+// সব পথ আঁকে: বাছা পথ লাল ও মোটা, বাকিগুলো ধূসর (ট্যাপ করলে সেটা বাছা হয়)
 function drawRoutes(a, b, routes, sel, onPick) {
   clearRoutes();
   routes.map((_, i) => i).sort((x, y) => (x === sel) - (y === sel)).forEach(i => {   // বাছা পথ সবার উপরে
@@ -452,23 +544,29 @@ async function updateRoute() {
   }
   $("chip").textContent = t("searching");
   const [routes, walk] = await Promise.all([getRoutes(a, b), getWalk(a, b)]);
-  if (dest !== idx || $("fromMap").value !== from) return;  
+  if (dest !== idx || $("fromMap").value !== from) return;   // এর মধ্যে অন্য কিছু বাছা হলে থেমে যাও
 
   const show = sel => {
     const r = routes[sel];
     drawRoutes(a, b, routes, sel, show);
     $("chip").innerHTML = "<div>" + nm(m) + "</div><div>" + t("dist")(num(r.km, 1)) + (r.exact ? "" : " " + t("approx")) +
       ", " + t("walkText")(fmtTime(walk.min)) + "</div>" +
-      (routes.length > 1 ? '<div class="note">' + (sel === 0 ? t("shortest") : t("other")) + "</div>" : "");
+      (routes.length > 1
+        ? '<div class="rbtns">' + routes.map((x, i) => '<button class="rbtn' + (i === sel ? " on" : "") + '" data-i="' + i + '">' +
+            t("routeN")(i + 1) + ": " + t("dist")(num(x.km, 1)) + "</button>").join("") + "</div>" +
+          '<div class="note">' + (sel === 0 ? t("shortest") : t("other")) + "</div>"
+        : "");
+    $("chip").querySelectorAll(".rbtn").forEach(btn => { btn.onclick = () => show(Number(btn.dataset.i)); });
   };
   show(0);
-  map.fitBounds(L.featureGroup(routeLayers).getBounds(), { paddingTopLeft: [40, 200], paddingBottomRight: [40, 70] });
+  map.fitBounds(L.featureGroup(routeLayers).getBounds(), { paddingTopLeft: [40, 230], paddingBottomRight: [40, 70] });
 }
 
 $("toMap").onchange   = e => setDest(e.target.value);
 $("fromMap").onchange = e => setFrom(e.target.value);
 
-$("gate").hidden = !!lang;             
+// ---- শুরু ----
+$("gate").hidden = !!lang;             // ভাষা আগে বাছা না থাকলে জিজ্ঞেস করা হবে
 applyTheme();
 setInterval(applyTheme, 60000);
 applyLang();
