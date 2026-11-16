@@ -215,8 +215,6 @@ const TX = {
     searching: "রুট খোঁজা হচ্ছে…", same: "শুরু আর গন্তব্য একই। আলাদা মণ্ডপ বেছে নিন।",
     noLoc: "আপনার অবস্থান পাওয়া যায়নি। ফোনের লোকেশন চালু করুন, অথবা শুরুতে একটি মণ্ডপ বেছে নিন।",
     approx: "(আনুমানিক)", noGeo: "এই ব্রাউজারে লোকেশন সুবিধা নেই।",
-    shortest: "সবচেয়ে ছোট পথ দেখানো হচ্ছে। অন্য পথ দেখতে ওপরের বাটন বা ধূসর রেখায় ট্যাপ করুন।",
-    other: "এটা সবচেয়ে ছোট পথ নয়। ছোট পথে ফিরতে পথ ১-এ ট্যাপ করুন।",
     min: "মিনিট", hour: "ঘণ্টা", dist: x => x + " কিমি", walkText: x => "হেঁটে প্রায় " + x, routeN: n => "পথ " + num(n)
   },
   en: {
@@ -228,8 +226,6 @@ const TX = {
     searching: "Finding route…", same: "Start and destination are the same. Choose a different mandap.",
     noLoc: "Your location was not found. Turn on location on your phone, or pick a mandap as the starting point.",
     approx: "(approx.)", noGeo: "Location is not available in this browser.",
-    shortest: "Showing the shortest route. Tap another route button or a grey line to see it.",
-    other: "This is not the shortest route. Tap Route 1 to go back to the shortest one.",
     min: "min", hour: "h", dist: x => x + " km", walkText: x => "About " + x + " on foot", routeN: n => "Route " + n
   }
 };
@@ -548,8 +544,7 @@ async function updateRoute() {
       ", " + t("walkText")(fmtTime(r.min)) + "</div>" +
       (routes.length > 1
         ? '<div class="rbtns">' + routes.map((x, i) => '<button class="rbtn' + (i === sel ? " on" : "") + '" data-i="' + i + '">' +
-            t("routeN")(i + 1) + ": " + t("dist")(num(x.km, 1)) + "</button>").join("") + "</div>" +
-          '<div class="note">' + (sel === 0 ? t("shortest") : t("other")) + "</div>"
+            t("routeN")(i + 1) + ": " + t("dist")(num(x.km, 1)) + "</button>").join("") + "</div>"
         : "");
     $("chip").querySelectorAll(".rbtn").forEach(btn => { btn.onclick = () => show(Number(btn.dataset.i)); });
   };
